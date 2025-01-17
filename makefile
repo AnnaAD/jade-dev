@@ -1,2 +1,12 @@
+setup:
+	python3 -m venv venv
+	(\
+	source venv/bin/activate ;\
+	pip install legacy-cgi\
+	)
+
 run:
-	python3 internal/server.py
+	(\
+	source venv/bin/activate ;\
+	python internal/server.py\
+	)
