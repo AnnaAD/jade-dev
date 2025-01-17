@@ -25,7 +25,7 @@ import threading
 autosave = True
 
 jsonfile = input("Enter the name of the json file to use (leave blank for default 'labs.json'): ")
-if jsonfile == '': jsonfile = 'labs.json'
+if jsonfile == '': jsonfile = 'saves/labs.json'
 
 PORT = input("Enter the port number to use (leave blank for default 8000): ")
 if PORT == '': PORT = 8000
@@ -38,21 +38,54 @@ else:
 
 print(f"INFO: Loading {jsonfile} in directory {os.getcwd()}")
 
+def generate_file_list(root_dir):
+    file_structure = []
+    for item in os.listdir(root_dir):
+        item_path = os.path.join(root_dir, item)
+        if os.path.isdir(item_path):
+            # If it's a folder, recursively explore its contents
+            sub_folder_structure = generate_file_list(item_path)
+            file_structure.append([item, sub_folder_structure])
+        else:
+            # If it's a file, just add the file name
+            file_structure.append(item)
+    return file_structure
+
+
 class JadeRequestHandler(BaseHTTPRequestHandler):
+
+    def send_files(self):
+        file_structure = []
+        root_dir = "saves/"
+        response = json.dumps({"body": generate_file_list(root_dir)})
+        if (type(response) == str):
+            response = response.encode('utf-8')
+        self.send_response(200)
+        self.send_header("Content-type", 'text/plain')
+        self.send_header("Content-Length", str(len(response)))
+        self.end_headers()
+        self.wfile.write(response)
+
     def log_message(self,format,*args):
         #print format % args
         return
 
     # serve up static files
     def do_GET(self):
+        if(self.path == "/files"):
+           self.send_files()
+           return
+
         path = self.path
         path = path.split('?',1)[0]
         path = path.split('#',1)[0]
-        path = path.replace('/','')
+        #path = path.replace('/','')
+        path = path[1:]
+        print(path)
         if path == '': path = 'index.html'
         ctype = self.guess_type(path)
         try:
-            f = open(path, 'rb')
+            f = open(os.path.join("internal",path), 'rb')
         except IOError:
             self.send_error(404, "File not found")
             return None
@@ -137,7 +170,7 @@ class JadeRequestHandler(BaseHTTPRequestHandler):
             # JSON Switcher
             elif (name is not None):
                 savedFile = jsonfile
-                jsonfile = name
+                jsonfile = os.path.join("saves/",name)
                 print(f"INFO: Switching to JSON file {jsonfile}")
             elif (set_autosave is not None):
                 set_autosave = str(set_autosave).upper()
@@ -175,7 +208,7 @@ class JadeRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(response)
 
             if (name is not None): # JSON Switch failed, revert to saved file
-                jsonfile = savedFile
+                jsonfile = os.path.join("saves/",savedFile)
                 print(f"ERROR: Cannot find {name}. Is it in the root of the jade/ folder? Keeping {savedFile} as the current JSON file")
                 return
             else: # Initial JSON file is not formatted correctly
@@ -193,7 +226,7 @@ class JadeRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(response)
 
             if (name is not None): # JSON Switch failed, revert to saved file
-                jsonfile = savedFile
+                jsonfile = os.path.join("saves",savedFile)
                 print(f"ERROR: JSON file {name} is not formatted correctly. Keeping {savedFile} as the current JSON file")
                 return
             else: # Initial JSON file is not formatted correctly
@@ -367,21 +400,21 @@ def autosave_task():
     global autosave
     global jsonfile
     while True:
-        time.sleep(300) # 5 minutes
+        time.sleep(3000) # 5 minutes
 
         if autosave == True:
             with open(jsonfile,'r') as f:
                 labs = json.load(f)
-            if not os.path.exists("autosave"):
-                os.makedirs("autosave")
+            if not os.path.exists("saves/autosave"):
+                os.makedirs("saves/autosave")
 
-            backup_files = [f for f in os.listdir("autosave") if f.startswith("autosave-" + jsonfile.split('.')[0])]
+            backup_files = [f for f in os.listdir("saves/autosave") if f.startswith("autosave-" + jsonfile.split('.')[0])]
             num_files = len(backup_files)
             if num_files >= 5:
                 oldest_file = min(backup_files, key=lambda f: os.path.getctime(os.path.join("autosave/", f)))
-                os.remove("autosave/" + oldest_file)
+                os.remove("saves/autosave/" + oldest_file)
 
-            autosave_filename = "autosave/autosave-" + jsonfile.split('.')[0] + "-" + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".json"
+            autosave_filename = "saves/autosave/autosave-" + jsonfile.split('.')[0].split("/")[1].replace("/","") + "-" + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".json"
             with open(autosave_filename,'w') as f:
                 json.dump(labs,f)
             
@@ -399,3 +432,4 @@ autosave_thread = threading.Thread(target=autosave_task)
 autosave_thread.daemon = True
 autosave_thread.start()
 httpd.serve_forever()
+

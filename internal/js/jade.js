@@ -99,7 +99,7 @@ jade_defs.top_level = function(jade) {
         }
 
         this.file_select = this.top_level.find('#file-select');
-        this.file_select.append('<span>Change JSON File:</span><input id="file-select-input" type="file" accept=".json">');
+        this.file_select.append('<span>Change JSON File:</span><input id="file-select-input" type="button" value = "Open File">');
         this.file_select.append('<br/>');
 
         // Define the async function as an arrow function to inherit 'this' from the outer scope
@@ -139,9 +139,12 @@ jade_defs.top_level = function(jade) {
             owner.jade.edit($(this).val());
         });
 
-        $('#file-select-input').on('change',function () {
-            const file = this.files[0];
-            jade.switch_json($('.jade')[0].jade, window.location.origin, file.name);
+        $('#file-select-input').on('click',function () {
+            //const file = this.files[0];
+            //console.log(this.files);
+            loadAndOpenFiles((file) => {
+                jade.switch_json($('.jade')[0].jade, window.location.origin, file);
+            });
         });
 
         $('#multi-file-select-input').on('change',function () {
